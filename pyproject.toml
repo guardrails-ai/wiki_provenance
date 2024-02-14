@@ -1,5 +1,5 @@
 [project]
-name = "wiki-provenance"
+name = "wiki_provenance"
 version = "0.0.0"
 description = "A Guardrails AI validator that detects and removes hallucinated text based off Wikipedia"
 authors = [

@@ -15,7 +15,7 @@ import wikipedia
 import nltk
 
 
-@register_validator(name="guardrails/wiki-provenance", data_type="string")
+@register_validator(name="guardrails/wiki_provenance", data_type="string")
 class WikiProvenance(Validator):
     """Validates that an LLM response is true based on Wikipedia data.
 
@@ -31,7 +31,7 @@ class WikiProvenance(Validator):
 
     | Property                      | Description                       |
     | ----------------------------- | --------------------------------- |
-    | Name for `format` attribute   | `guardrails/wiki-provenance`      |
+    | Name for `format` attribute   | `guardrails/wiki_provenance`      |
     | Supported data types          | `string`                          |
     | Programmatic fix              | Return supported sentences only   |
     """  # noqa

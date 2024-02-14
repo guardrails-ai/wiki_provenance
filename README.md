@@ -15,14 +15,14 @@ This validator checks if an LLM-generated text contains hallucinations. It retri
 ## Installation
 
 ```bash
-$ guardrails hub install hub://guardrails/wiki-provenance
+$ guardrails hub install hub://guardrails/wiki_provenance
 ```
 
 ## Usage Examples
 
 ### Validating string output via Python
 
-In this example, we use the `wiki-provenance` validator on any LLM generated text.
+In this example, we use the `wiki_provenance` validator on any LLM generated text.
 
 ```python
 # Import Guard and Validator
