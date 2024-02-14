@@ -311,26 +311,3 @@ class WikiProvenance(Validator):
             f"Validation method {self.validation_method} is not supported."
             "Please use either 'sentence' or 'full'."
         )
-
-
-if __name__ == "__main__":
-    pass
-    # Example usage
-    # validator = WikiProvenance(topic_name="Apple company", validation_method="sentence")
-    # response = "Apple Inc. is an American multinational technology company headquartered in Cupertino, California, in Silicon Valley. It was founded by Steve Jobs, Steve Wozniak, and Ronald Wayne in April 1976."
-    # result = validator.validate(response, metadata={})
-    # print(result)
-
-    # response = "Apple Inc. is an Indian oil company headquartered in Mumbai, India. It was founded by Ratan Tata in October 2001."
-    # result = validator.validate(response, metadata={})
-    # print(result)
-
-    # validator = WikiProvenance(topic_name="Python", validation_method="full")
-    # response = "Python is a high-level, general-purpose programming language created by Guido van Rossum. It was first released in 1991. Python's design philosophy emphasizes code readability with its notable use of significant indentation."
-    # result = validator.validate(response, metadata={})
-    # print(result)
-
-    # validator = WikiProvenance(topic_name="Mercury", validation_method="full")
-    # response = "Mercury is a planet in the Solar System. It is the smallest planet in the Solar System and the closest to the Sun. It is named after the Roman deity Mercury, the messenger of the gods."
-    # result = validator.validate(response, metadata={})
-    # print(result)
