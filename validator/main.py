@@ -135,12 +135,8 @@ class WikiProvenance(Validator):
         Returns:
             chunks (List[str]): A list of paragraphs of the Wikipedia page.
         """
-        # Split based on newline and
-        # only keep the content before the "See also" section
+        # Split based on newline
         chunks = page_content.split("\n")
-        chunks = chunks[
-            : chunks.index("== See also ==")
-        ]  # TODO: all pages may not have this section
 
         # Some cleaning
         chunks = [
