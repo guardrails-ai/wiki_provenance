@@ -1,7 +1,7 @@
 [project]
-name = "regexmatch"
+name = "wiki-provenance"
 version = "0.0.0"
-description = "Template repo for Guardrails Hub validators."
+description = "A Guardrails AI validator that detects and removes hallucinated text based off Wikipedia"
 authors = [
     {name = "Guardrails AI", email = "contact@guardrailsai.com"}
 ]
@@ -9,8 +9,11 @@ license = {file = "LICENSE"}
 readme = "README.md"
 requires-python = ">= 3.8"
 dependencies = [
-    "rstr",
-    "guardrails-ai>=0.3.2"
+    "guardrails-ai>=0.3.2",
+    "litellm>=1.23.0",
+    "chromadb",
+    "wikipedia",
+    "nltk",
 ]
 
 [project.optional-dependencies]

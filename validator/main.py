@@ -1,8 +1,5 @@
-import re
-import string
-from typing import Any, Callable, Dict, Optional
-
-import rstr
+from typing import Callable, Dict, Optional
+from warnings import warn
 
 from guardrails.validator_base import (
     FailResult,
@@ -12,60 +9,332 @@ from guardrails.validator_base import (
     register_validator,
 )
 
+import chromadb
+from litellm import completion
+import wikipedia
+import nltk
 
-@register_validator(name="guardrails/regex_match", data_type="string")
-class RegexMatch(Validator):
-    """Validates that a value matches a regular expression.
+
+@register_validator(name="guardrails/wiki-provenance", data_type="string")
+class WikiProvenance(Validator):
+    """Validates that an LLM response is true based on Wikipedia data.
+
+    The conversation topic is used to fetch the Wikipedia page and
+    the LLM response is validated based on the Wikipedia page content.
+    The topic is explcitly provided by the user.
+
+    Note for users:
+    Please be specific with the topic name to avoid disambiguation errors and
+    to retrieve the most relevant Wikipedia page.
 
     **Key Properties**
 
     | Property                      | Description                       |
     | ----------------------------- | --------------------------------- |
-    | Name for `format` attribute   | `regex_match`                     |
+    | Name for `format` attribute   | `guardrails/wiki-provenance`      |
     | Supported data types          | `string`                          |
-    | Programmatic fix              | Generate a string that matches the regular expression |
-
-    Args:
-        regex: Str regex pattern
-        match_type: Str in {"search", "fullmatch"} for a regex search or full-match option
+    | Programmatic fix              | Return supported sentences only   |
     """  # noqa
 
     def __init__(
         self,
-        regex: str,
-        match_type: Optional[str] = None,
+        topic_name: str,
+        validation_method: str = "sentence",
+        llm_callable: str = "gpt-3.5-turbo",  # LiteLLM model name
         on_fail: Optional[Callable] = None,
+        **kwargs,
     ):
-        # todo -> something forces this to be passed as kwargs and therefore xml-ized.
-        # match_types = ["fullmatch", "search"]
-
-        if match_type is None:
-            match_type = "fullmatch"
-        assert match_type in [
-            "fullmatch",
-            "search",
-        ], 'match_type must be in ["fullmatch", "search"]'
-
-        super().__init__(on_fail=on_fail, match_type=match_type, regex=regex)
-        self._regex = regex
-        self._match_type = match_type
-
-    def validate(self, value: Any, metadata: Dict) -> ValidationResult:
-        p = re.compile(self._regex)
-        """Validates that value matches the provided regular expression."""
-        # Pad matching string on either side for fix
-        # example if we are performing a regex search
-        str_padding = (
-            "" if self._match_type == "fullmatch" else rstr.rstr(string.ascii_lowercase)
+        super().__init__(
+            on_fail,
+            topic_name=topic_name,
+            validation_method=validation_method,
+            llm_callable=llm_callable,
+            **kwargs,
         )
-        self._fix_str = str_padding + rstr.xeger(self._regex) + str_padding
+        self.topic_name = topic_name
+        self.validation_method = validation_method
+        self.llm_callable = llm_callable
 
-        if not getattr(p, self._match_type)(value):
-            return FailResult(
-                error_message=f"Result must match {self._regex}",
-                fix_value=self._fix_str,
+        # Instantiate chromadb client and create a collection
+        chroma_client = chromadb.Client()
+        self.collection = chroma_client.get_or_create_collection(
+            name=f"wiki_{str(hash(self.topic_name))}",
+        )
+
+        # Get the Wikipedia page, chunk it up, and add it to vector DB
+        self.page = self.get_wiki_page()
+        self.add_to_collection(self.page.content)
+
+    def get_wiki_page(self):
+        """Set the Wikipedia page."""
+
+        # Search for the Wikipedia page
+        search_results = wikipedia.search(self.topic_name, results=3)
+        print(search_results)
+        page = None
+        for search_result in search_results:
+            try:
+                page = wikipedia.page(title=search_result, auto_suggest=False)
+                break
+            except wikipedia.exceptions.DisambiguationError as de:
+                # If disambiguation error, resolve with the first option
+                warn(
+                    f"Resolving disambiguation error with the first option: {de.options[0]} "
+                    "In future, please be more specific."
+                )
+                page = wikipedia.page(title=de.options[0], auto_suggest=False)
+                break
+            except wikipedia.exceptions.PageError:
+                # If page error, continue to the next search result
+                continue
+
+        # Raise an error if a valid Wikipedia page is not found
+        if page is None:
+            raise RuntimeError(
+                f"Could not find a valid Wikipedia page for {self.topic_name}. "
+                "Please try with a different topic."
             )
-        return PassResult()
+        return page
 
-    def to_prompt(self, with_keywords: bool = True) -> str:
-        return "results should match " + self._regex
+    def join_single_sentence_chunks(self, chunks) -> list[str]:
+        """
+        Joins consecutive single-sentence chunks in a list to form paragraphs.
+
+        Args:
+        chunks: A list of strings representing text chunks.
+
+        Returns:
+        A new list with paragraphs formed by joining consecutive single-sentence chunks.
+        """
+        new_chunks = []
+        paragraph = ""
+        for chunk in chunks:
+            # Check if the chunk is a single sentence
+            if chunk.count(".") <= 1:
+                paragraph += " " + chunk
+            else:
+                # If not a single sentence,
+                # end the previous paragraph and add it to the list
+                if paragraph:
+                    new_chunks.append(paragraph.strip())
+
+                # Start a new paragraph
+                paragraph = chunk
+
+        # Add the last paragraph if exists
+        if paragraph:
+            new_chunks.append(paragraph.strip())
+        return new_chunks
+
+    def get_page_chunks(self, page_content: str) -> list[str]:
+        """Transforms the Wikipedia page content into paragraphs.
+
+        Args:
+            page_content (str): Wikipedia page content.
+
+        Returns:
+            chunks (List[str]): A list of paragraphs of the Wikipedia page.
+        """
+        # Split based on newline and
+        # only keep the content before the "See also" section
+        chunks = page_content.split("\n")
+        chunks = chunks[
+            : chunks.index("== See also ==")
+        ]  # TODO: all pages may not have this section
+
+        # Some cleaning
+        chunks = [
+            chunk
+            for chunk in chunks
+            if not chunk.startswith("==")
+            and not chunk.startswith("===")
+            and chunk.strip() != ""
+        ]
+
+        # Join consecutive single-sentence chunks to form paragraphs
+        chunks = self.join_single_sentence_chunks(chunks)
+        return chunks
+
+    def add_to_collection(self, page_content: str) -> None:
+        """Adds the Wikipedia page content to a vector collection.
+
+        ETL step that extracts the content from the Wikipedia page,
+        transforms it into paragraphs, and loads it to the vector DB.
+
+        Args:
+            page_content (str): Wikipedia page content.
+        """
+        chunks = self.get_page_chunks(page_content)
+
+        # Add the chunks to the collection
+        self.collection.add(
+            documents=chunks,
+            ids=[f"{i}" for i in range(len(chunks))],
+        )
+
+    def get_closest_chunks(self, response: str) -> list[str]:
+        """Retrieves the closest matching paragraphs to the LLM response
+
+        Args:
+            response (str): LLM response.
+
+        Returns:
+            closest_chunks (List[str]): A list of the closest matching paragraphs to the LLM response.
+        """
+        # Get the closest matching chunks to the LLM response
+        results = self.collection.query(
+            query_texts=[response],
+            n_results=3,
+        )
+
+        # Extract the closest chunks
+        if not results["documents"]:
+            raise ValueError(
+                "Could not find any matching paragraphs in the Wikipedia page."
+            )
+        closest_chunks = results["documents"][0]
+        return closest_chunks
+
+    def get_prompt(self, response: str, chunks: list[str]) -> str:
+        """Generates the prompt to send to the LLM
+
+        Args:
+        response (str): LLM response.
+        chunks (List[str]): A list of paragraphs of the Wikipedia page.
+
+        Returns:
+        prompt (str): The prompt to send to the LLM.
+        """
+
+        prompt = """Instructions:
+        As an oracle of logic and intelligence, your task is to determine whether the following 'Contexts' support the 'Claim'.
+        Please answer the question with just a 'Yes' or a 'No'. Any other text is strictly forbidden.
+        You'll be evaluated based on how well you understand the relationship between the contexts and the claim 
+        and how well you follow the instructions to answer with a 'Yes' or a 'No'.
+
+        Claim:
+        {}
+
+        Contexts:
+        {}
+
+        Your Answer:
+        
+        """.format(
+            response, "\n".join(chunks)
+        )
+        return prompt
+
+    def get_evaluation(self, response: str) -> str:
+        """Evaluates the LLM response by re-prompting another LLM.
+
+        Args:
+        response (str): LLM response.
+
+        Returns:
+        val_response (str): The evaluation response from the LLM.
+        """
+        # Get the closest matching chunks to the sentence
+        closest_chunks = self.get_closest_chunks(response)
+
+        # Get the prompt
+        prompt = self.get_prompt(response, closest_chunks)
+        print("Prompt:", prompt)
+
+        # Get the LLM response
+        messages = [{"content": prompt, "role": "user"}]
+        try:
+            val_response = completion(model=self.llm_callable, messages=messages)
+            val_response = val_response.choices[0].message.content  # type: ignore
+            val_response = val_response.strip().lower()
+        except Exception as e:
+            raise RuntimeError(f"Error getting response from the LLM: {e}") from e
+
+        print("Validation response:", val_response)
+        if val_response not in ["yes", "no"]:
+            raise ValueError("Received an invalid evaluation response from the LLM.")
+
+        return val_response
+
+    def validate_each_sentence(self, value: str, metadata: Dict) -> ValidationResult:
+        """Valudates each sentence in the LLM response."""
+
+        # Split the value into sentences using nltk sentence tokenizer.
+        sentences = nltk.sent_tokenize(value)
+
+        unsupported_sentences, supported_sentences = [], []
+        for sentence in sentences:
+            # Get the LLM response
+            val_response = self.get_evaluation(sentence)
+            # Check if the LLM response is supported or not
+            if val_response == "yes":
+                supported_sentences.append(sentence)
+            else:
+                unsupported_sentences.append(sentence)
+
+        # If there are unsupported sentences, return a FailResult
+        if unsupported_sentences:
+            unsupported_sentences = "- " + "\n- ".join(unsupported_sentences)
+            return FailResult(
+                metadata=metadata,
+                error_message=(
+                    f"None of the following sentences in the response are supported "
+                    "by the provided context:"
+                    f"\n{unsupported_sentences}"
+                ),
+                fix_value="\n".join(supported_sentences),
+            )
+        return PassResult(metadata=metadata)
+
+    def validate_full_text(self, value: str, metadata: Dict) -> ValidationResult:
+        """Validates the full text of the LLM response."""
+
+        # Get the LLM response
+        val_response = self.get_evaluation(value)
+
+        # If the LLM response is not supported, return a FailResult
+        if val_response == "no":
+            return FailResult(
+                metadata=metadata,
+                error_message=(
+                    "The response is not supported by the provided context."
+                ),
+                fix_value="",
+            )
+        return PassResult(metadata=metadata)
+
+    def validate(self, value: str, metadata: Dict) -> ValidationResult:
+        """Validation method for the WikiProvenance validator."""
+
+        # Based on the validation method, validate the LLM response
+        if self.validation_method == "sentence":
+            return self.validate_each_sentence(value, metadata)
+        if self.validation_method == "full":
+            return self.validate_full_text(value, metadata)
+        raise ValueError(
+            f"Validation method {self.validation_method} is not supported."
+            "Please use either 'sentence' or 'full'."
+        )
+
+
+if __name__ == "__main__":
+    pass
+    # Example usage
+    # validator = WikiProvenance(topic_name="Apple company", validation_method="sentence")
+    # response = "Apple Inc. is an American multinational technology company headquartered in Cupertino, California, in Silicon Valley. It was founded by Steve Jobs, Steve Wozniak, and Ronald Wayne in April 1976."
+    # result = validator.validate(response, metadata={})
+    # print(result)
+
+    # response = "Apple Inc. is an Indian oil company headquartered in Mumbai, India. It was founded by Ratan Tata in October 2001."
+    # result = validator.validate(response, metadata={})
+    # print(result)
+
+    # validator = WikiProvenance(topic_name="Python", validation_method="full")
+    # response = "Python is a high-level, general-purpose programming language created by Guido van Rossum. It was first released in 1991. Python's design philosophy emphasizes code readability with its notable use of significant indentation."
+    # result = validator.validate(response, metadata={})
+    # print(result)
+
+    # validator = WikiProvenance(topic_name="Mercury", validation_method="full")
+    # response = "Mercury is a planet in the Solar System. It is the smallest planet in the Solar System and the closest to the Sun. It is named after the Roman deity Mercury, the messenger of the gods."
+    # result = validator.validate(response, metadata={})
+    # print(result)
