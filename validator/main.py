@@ -1,6 +1,5 @@
 from typing import Callable, Dict, Optional
 from warnings import warn
-
 from guardrails.validator_base import (
     FailResult,
     PassResult,
@@ -8,11 +7,14 @@ from guardrails.validator_base import (
     Validator,
     register_validator,
 )
-
-import chromadb
 from litellm import completion
 import wikipedia
 import nltk
+from utils.pre_install import install_chroma
+
+if not install_chroma():
+    raise RuntimeError("Error installing chromadb. Please install it manually.")
+import chromadb
 
 
 @register_validator(name="guardrails/wiki_provenance", data_type="string")
