@@ -28,11 +28,12 @@ def install_chroma() -> bool:
                     "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
                 }
             }
+            print(DATABASES)
 
         # Install requirements
         subprocess.check_call(
             [sys.executable, "-m", "pip", "install", "chromadb", "-q"]
         )
         return True
-    except Exception as e:
+    except Exception:
         return False
