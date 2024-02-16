@@ -10,7 +10,7 @@ from guardrails.validator_base import (
 from litellm import completion
 import wikipedia
 import nltk
-from .utils.pre_install import install_chroma
+from ..utils.pre_install import install_chroma
 
 if not install_chroma():
     raise RuntimeError("Error installing chromadb. Please install it manually.")
