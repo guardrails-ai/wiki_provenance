@@ -14,8 +14,7 @@ from .utils.pre_install import install_chroma
 
 if not install_chroma():
     raise RuntimeError("Error installing chromadb.")
-else:
-    import chromadb
+import chromadb
 
 
 @register_validator(name="guardrails/wiki_provenance", data_type="string")
