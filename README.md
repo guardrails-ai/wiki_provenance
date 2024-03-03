@@ -4,7 +4,7 @@
 | --- | --- |
 | Date of development | Feb 15, 2024 |
 | Validator type | Format |
-| Blog |  |
+| Blog | - |
 | License | Apache 2 |
 | Input/Output | Output |
 
@@ -18,7 +18,7 @@ This validator checks if an LLM-generated text contains hallucinations. It retri
 ## Installation
 
 ```bash
-$ guardrails hub install hub://guardrails/wiki_provenance
+guardrails hub install hub://guardrails/wiki_provenance
 ```
 
 ## Usage Examples
@@ -32,17 +32,23 @@ In this example, we use the `wiki_provenance` validator on any LLM generated tex
 from guardrails.hub import WikiProvenance
 from guardrails import Guard
 
-# Initialize Validator
-val = WikiProvenance(topic_name="Apple company")
-
-# Setup Guard
-guard = Guard.from_string(
-    validators=[val, ...],
+# Use the Guard with the validator
+guard = Guard().use(
+    WikiProvenance,
+    topic_name="Apple company",
+    validation_method="sentence",
+    llm_callable="gpt-3.5-turbo",
+    on_fail="exception"
 )
 
-# Pass LLM output through guard
-guard.parse("Apple was founded by Steve Jobs in April 1976.")  # Pass
-guard.parse("Ratan Tata founded Apple in September 1998 as a fruit selling company.")  # Fail
+# Test passing response
+guard.validate("Apple was founded by Steve Jobs in April 1976.")  # Pass
+
+# Test failing response
+try:
+    guard.validate("Ratan Tata founded Apple in September 1998 as a fruit selling company.")  # Fail
+except Exception as e:
+    print(e)
 ```
 
 ## API Reference
@@ -63,7 +69,7 @@ Initializes a new instance of the Validator class.
 
 <br>
 
-**`__call__(self, value, metadata={}) → ValidationOutcome`**
+**`__call__(self, value, metadata={}) → ValidationResult`**
 
 <ul>
 
