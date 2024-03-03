@@ -5,6 +5,9 @@ from validator import WikiProvenance
 # Instantiate the validator
 validator = WikiProvenance(on_fail="exception", topic_name="Apple company")
 
+# Create Guard object
+guard = Guard.from_string(validators=[validator])
+
 
 # Test happy path
 @pytest.mark.parametrize(
@@ -16,7 +19,6 @@ validator = WikiProvenance(on_fail="exception", topic_name="Apple company")
 )
 def test_happy_path(value):
     """Test happy path."""
-    guard = Guard.from_string(validators=[validator])
     response = guard.parse(value)
     print("Happy path response", response)
     assert response.validation_passed is True
@@ -32,7 +34,6 @@ def test_happy_path(value):
 )
 def test_fail_path(value):
     """Test fail path."""
-    guard = Guard.from_string(validators=[validator])
     with pytest.raises(Exception):
         response = guard.parse(value)
         print("Fail path response", response)
