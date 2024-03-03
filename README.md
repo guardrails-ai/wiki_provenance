@@ -14,7 +14,7 @@ This validator checks if an LLM-generated text contains hallucinations. It retri
 
 ## Requirements
 * Dependencies: `litellm`, `chromadb`, `wikipedia`, `nltk`
-
+* Create a single Guard object per `topic_name` to avoid redundant wikipedia and vector collections.
 ## Installation
 
 ```bash
