@@ -173,7 +173,7 @@ class WikiProvenance(Validator):
         # Add the chunks to the collection
         self.collection.add(
             documents=chunks,
-            ids=[f"{i}" for i in range(len(chunks))],
+            ids=[f"{i}-{hash(chunk)}" for i, chunk in enumerate(chunks)],
         )
 
     def get_closest_chunks(self, response: str) -> list[str]:
