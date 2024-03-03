@@ -1,6 +1,6 @@
-import sys
 import os
 import subprocess
+import sys
 
 
 def install_chroma() -> bool:

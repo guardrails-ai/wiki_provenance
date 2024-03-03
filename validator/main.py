@@ -1,5 +1,8 @@
 from typing import Callable, Dict, Optional
 from warnings import warn
+
+import nltk
+import wikipedia
 from guardrails.validator_base import (
     FailResult,
     PassResult,
@@ -8,8 +11,7 @@ from guardrails.validator_base import (
     register_validator,
 )
 from litellm import completion
-import wikipedia
-import nltk
+
 from .utils.pre_install import install_chroma
 
 if not install_chroma():
@@ -54,6 +56,10 @@ class WikiProvenance(Validator):
             **kwargs,
         )
         self.topic_name = topic_name
+        if validation_method not in ["sentence", "full"]:
+            raise ValueError(
+                "The validation method should be either 'sentence' or 'full'."
+            )
         self.validation_method = validation_method
         self.llm_callable = llm_callable
 
@@ -218,9 +224,7 @@ class WikiProvenance(Validator):
 
         Your Answer:
         
-        """.format(
-            response, "\n".join(chunks)
-        )
+        """.format(response, "\n".join(chunks))
         return prompt
 
     def get_evaluation(self, response: str) -> str:
@@ -309,7 +313,3 @@ class WikiProvenance(Validator):
             return self.validate_each_sentence(value, metadata)
         if self.validation_method == "full":
             return self.validate_full_text(value, metadata)
-        raise ValueError(
-            f"Validation method {self.validation_method} is not supported."
-            "Please use either 'sentence' or 'full'."
-        )

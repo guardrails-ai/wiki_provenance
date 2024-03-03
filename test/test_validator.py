@@ -1,7 +1,6 @@
+import pytest
 from guardrails import Guard
 from validator import WikiProvenance
-import pytest
-
 
 # Instantiate the validator
 validator = WikiProvenance(on_fail="exception", topic_name="Apple company")
