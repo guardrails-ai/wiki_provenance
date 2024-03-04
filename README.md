@@ -50,6 +50,11 @@ try:
 except Exception as e:
     print(e)
 ```
+Output:
+```console
+Validation failed for field with errors: None of the following sentences in the response are supported by the provided context:
+- Ratan Tata founded Apple in September 1998 as a fruit selling company.
+```
 
 ## API Reference
 
