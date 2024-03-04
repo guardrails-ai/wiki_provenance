@@ -78,7 +78,7 @@ class WikiProvenance(Validator):
 
         # Search for the Wikipedia page
         search_results = wikipedia.search(self.topic_name, results=3)
-        print(search_results)
+        print("\nSearch results:\n", search_results)
         page = None
         for search_result in search_results:
             try:
@@ -241,7 +241,6 @@ class WikiProvenance(Validator):
 
         # Get the prompt
         prompt = self.get_prompt(response, closest_chunks)
-        print("Prompt:", prompt)
 
         # Get the LLM response
         messages = [{"content": prompt, "role": "user"}]
@@ -252,17 +251,14 @@ class WikiProvenance(Validator):
         except Exception as e:
             raise RuntimeError(f"Error getting response from the LLM: {e}") from e
 
-        print("Validation response:", val_response)
-        if val_response not in ["yes", "no"]:
-            raise ValueError("Received an invalid evaluation response from the LLM.")
-
+        print("\nValidation response:\n", val_response)
         return val_response
 
     def validate_each_sentence(self, value: str, metadata: Dict) -> ValidationResult:
         """Valudates each sentence in the LLM response."""
-
         # Split the value into sentences using nltk sentence tokenizer.
         sentences = nltk.sent_tokenize(value)
+        pass_on_invalid = metadata.get("pass_on_invalid", False)  # default to False
 
         unsupported_sentences, supported_sentences = [], []
         for sentence in sentences:
@@ -271,8 +267,15 @@ class WikiProvenance(Validator):
             # Check if the LLM response is supported or not
             if val_response == "yes":
                 supported_sentences.append(sentence)
-            else:
+            elif val_response == "no":
                 unsupported_sentences.append(sentence)
+            else:
+                # If the LLM response is invalid, pass/fail the validation
+                # based on the `pass_on_invalid` flag
+                if pass_on_invalid:
+                    supported_sentences.append(sentence)
+                else:
+                    unsupported_sentences.append(sentence)
 
         # If there are unsupported sentences, return a FailResult
         if unsupported_sentences:
@@ -290,12 +293,15 @@ class WikiProvenance(Validator):
 
     def validate_full_text(self, value: str, metadata: Dict) -> ValidationResult:
         """Validates the full text of the LLM response."""
-
         # Get the LLM response
         val_response = self.get_evaluation(value)
+        pass_on_invalid = metadata.get("pass_on_invalid", False)  # default to False
 
-        # If the LLM response is not supported, return a FailResult
+        if val_response == "yes":
+            # If the LLM response is supported, return a PassResult
+            return PassResult(metadata=metadata)
         if val_response == "no":
+            # If the LLM response is not supported, return a FailResult
             return FailResult(
                 metadata=metadata,
                 error_message=(
@@ -303,11 +309,19 @@ class WikiProvenance(Validator):
                 ),
                 fix_value="",
             )
-        return PassResult(metadata=metadata)
+        if pass_on_invalid:
+            warn("LLM returned an invalid response. Passing the validation...")
+            return PassResult(metadata=metadata)
+        return FailResult(
+            metadata=metadata,
+            error_message=(
+                "LLM returned an invalid response. Failing the validation..."
+            ),
+            fix_value="",
+        )
 
     def validate(self, value: str, metadata: Dict) -> ValidationResult:
         """Validation method for the WikiProvenance validator."""
-
         # Based on the validation method, validate the LLM response
         if self.validation_method == "sentence":
             return self.validate_each_sentence(value, metadata)

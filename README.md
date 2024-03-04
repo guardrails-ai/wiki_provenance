@@ -83,6 +83,11 @@ Note:
 **Parameters:**
 
 - **`value`** *(Any):* The input value to validate.
-- **`metadata`** *(dict):* A dictionary containing metadata required for validation. No additional metadata keys are needed for this validator.
+- **`metadata`** *(dict):* A dictionary containing metadata required for validation. Keys and values must match the expectations of this validator.
+    
+    
+    | Key | Type | Description | Default | Required |
+    | --- | --- | --- | --- | --- |
+    | `pass_on_invalid` | Boolean | Whether to pass the validation if the LLM returns an invalid response | False | No |
 
 </ul>
