@@ -42,7 +42,7 @@ guard = Guard().use(
 )
 
 # Test passing response
-guard.validate("Apple was founded by Steve Jobs in April 1976.")  # Pass
+guard.validate("Apple was founded by Steve Jobs in April 1976.", metadata={"pass_on_invalid": True})  # Pass
 
 # Test failing response
 try:
