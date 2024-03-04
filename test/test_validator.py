@@ -11,15 +11,21 @@ guard = Guard.from_string(validators=[validator])
 
 # Test happy path
 @pytest.mark.parametrize(
-    "value",
+    "value, metadata",
     [
-        "Apple Inc. is an American multinational technology company headquartered in Cupertino, California, in Silicon Valley.",
-        "Apple was founded by Steve Jobs, Steve Wozniak, and Ronald Wayne in April 1976 to develop and sell Wozniak's Apple I personal computer.",
+        (
+            "Apple Inc. is an American multinational technology company headquartered in Cupertino, California, in Silicon Valley.",
+            {"pass_on_invalid": True},
+        ),
+        (
+            "Apple was founded by Steve Jobs, Steve Wozniak, and Ronald Wayne in April 1976 to develop and sell Wozniak's Apple I personal computer.",
+            {"pass_on_invalid": True},
+        ),
     ],
 )
-def test_happy_path(value):
+def test_happy_path(value, metadata):
     """Test happy path."""
-    response = guard.parse(value)
+    response = guard.parse(value, metadata=metadata)
     print("Happy path response", response)
     assert response.validation_passed is True
 
