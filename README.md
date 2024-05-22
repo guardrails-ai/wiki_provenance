@@ -79,7 +79,7 @@ Initializes a new instance of the Validator class.
 </ul>
 <br/>
 
-**`__call__(self, value, metadata={}) → ValidationResult`**
+**`__call__(self, value, metadata={}) -> ValidationResult`**
 <ul>
 Validates the given `value` using the rules defined in this validator, relying on the `metadata` provided to customize the validation process. This method is automatically invoked by `guard.parse(...)`, ensuring the validation logic is applied to the input data.
 
@@ -95,5 +95,5 @@ Note:
     
     | Key | Type | Description | Default | Required |
     | --- | --- | --- | --- | --- |
-    | pass_on_invalid | Boolean | Whether to pass the validation if the LLM returns an invalid response | False | No |
+    | `pass_on_invalid` | Boolean | Whether to pass the validation if the LLM returns an invalid response | False | No |
 </ul>
