@@ -1,6 +1,6 @@
 [project]
 name = "wiki_provenance"
-version = "0.0.0"
+version = "0.0.1"
 description = "A Guardrails AI validator that detects and removes hallucinated text based off Wikipedia"
 authors = [
     {name = "Guardrails AI", email = "contact@guardrailsai.com"}
